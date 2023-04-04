@@ -1,57 +1,57 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import server from "./server";
 import * as secp from "ethereum-cryptography/secp256k1";
 import { signMessage } from "./processMessage";
-import { toHex, utf8ToBytes } from "ethereum-cryptography/utils";
-import { keccak256 } from "ethereum-cryptography/keccak";
+import { toHex } from "ethereum-cryptography/utils";
 
 function Transfer({ address, setBalance, privateKey }) {
   const [sendAmount, setSendAmount] = useState("");
   const [recipient, setRecipient] = useState("");
-  const [signature, setSignature] = useState([]);
+  const [sign, setSign] = useState("");
   let publicKey;
 
   const setValue = (setter) => (evt) => setter(evt.target.value);
 
-    try {
-      publicKey = secp.getPublicKey(privateKey);
-    } catch (error) {
-      console.log(error)
-    }
-
-  // function setValue(setter) {
-  //   return function(evt) { setter(evt.target.value)}  
-  // }
-  function hashMessage(message) {
-    return keccak256(utf8ToBytes(message));
+  try {
+    publicKey = secp.getPublicKey(privateKey);
+  } catch (error) {
+    console.log(error)
   }
 
   // TODO: Create Message containing transaction details. Send all info as hexadecimal string to maintain integrity of data
 
   async function transfer(evt) {
     evt.preventDefault();
-    console.log(address);
-    const sig = await signMessage(sendAmount, privateKey);
-    console.log("Signature: ", sig);
-    const hashSig = toHex(sig);
+
+    // console.log(recipient, address);
+    const message = {
+      sender: address,
+      amount: parseInt(sendAmount),
+      recipient,
+      time: new Date().getTime()
+    }
+
+    // Sign message with private key. Method returns a Uint8Array Hash
+    const sig = await signMessage(JSON.stringify(message), privateKey);
+    // console.log("Signature: ", sig);
+
+    // Convert the signature to hexadecimal string
+    const signature = toHex(sig);
     const hashPub = toHex(publicKey);
-    console.log(toHex(hashMessage(sendAmount)));
-    setSignature(hashSig);
+    setSign(signature);
 
     try {
       // Nested destructuring: pull data from response and then pull balance from data
       const {
         data: { balance },
       } = await server.post(`send`, {
-        sender: address,
-        amount: sendAmount,
-        hash: toHex(hashMessage(sendAmount)),
-        recipient,
+        message,
         signature,
         hashPub
       });
       setBalance(balance);
     } catch (ex) {
+      console.log(ex);
       alert(ex.response.data.message);
     }
   }
@@ -79,7 +79,7 @@ function Transfer({ address, setBalance, privateKey }) {
       </label>
 
       <label>
-        Signature: {signature}
+        Signature: {sign.slice(0, 10)}...{sign.slice(-10)}
       </label>
 
       <input type="submit" className="button" value="Transfer" />

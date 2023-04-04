@@ -4,7 +4,7 @@ const cors = require("cors");
 const port = 3042;
 const secp = require('ethereum-cryptography/secp256k1');
 const { keccak256 } = require("ethereum-cryptography/keccak");
-const { utf8ToBytes, hexToBytes } = require("ethereum-cryptography/utils");
+const { utf8ToBytes, toHex, hexToBytes } = require("ethereum-cryptography/utils");
 
 app.use(cors());
 app.use(express.json());
@@ -22,6 +22,11 @@ const balances = {
   "ffb32983363d0b1fabc98808a8c6bb0ed0802347": 75,
 };
 
+app.get("/", (req, res) => {
+  console.log("hit")
+  res.send({...balances});
+});
+
 app.get("/balance/:address", (req, res) => {
   const { address } = req.params;
   const balance = balances[address] || 0;
@@ -29,15 +34,14 @@ app.get("/balance/:address", (req, res) => {
 });
 
 app.post("/send", (req, res) => {
-  const { sender, recipient, amount, hash, signature, hashPub } = req.body;
+  const { message, signature, hashPub } = req.body;
+  const {sender, recipient, amount} = message;
 
-  console.log(signature);
-  const byteSig = hexToBytes(signature);
-  const bytePub = hexToBytes(hashPub);
-  // const bytePubKey = hexToBytes(publicKey);
-
-  const isSigned = secp.verify(byteSig, hash, bytePub);
-  console.log(isSigned, hash);
+  //Create a hexadecimal string form the hash of the message
+  const hashMsg = hashMessage(JSON.stringify(message));
+  
+  const isSigned = secp.verify(signature, hashMsg, hashPub);
+  console.log(isSigned);
 
   setInitialBalance(sender);
   setInitialBalance(recipient);
